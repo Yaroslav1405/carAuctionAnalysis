@@ -22,7 +22,7 @@ def safe_extract_text(soup, selector, multiple=False, index=0):
 
 
 def collect_car_info(driver, url):
-    driver.uc_open_with_reconnect(url, 30)
+    driver.uc_open_with_reconnect(url, 10) # Increase time to 30 when using proxy
     driver.uc_gui_click_captcha()
     # BS4
 
