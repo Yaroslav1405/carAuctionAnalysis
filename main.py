@@ -15,7 +15,7 @@ def get_car_links():
             'Secondary Damage', 'Transmission', 'Keys'
         ])
     df.to_csv('bidfax.csv', index=False)
-    for page_index in range(1,11): # parse first 10 pages
+    for page_index in range(1, 11): # parse first 10 pages
         print(f'Processing page {page_index}')
         driver.uc_open_with_reconnect(f'https://en.bidfax.info/bmw/335/f/from-year=2013/to-year=2018/page/{page_index}', 10) # Increase to 30 when using proxy
         
@@ -42,7 +42,7 @@ def get_car_links():
                 df = pd.concat([df, pd.DataFrame([car_data])], ignore_index=True)
                 print('Car data was successfully appended into a dataframe.')
                 print(f'Time to process car {i}: {time.time() - processing_car_timestamp}')
-            driver.sleep(3)
+            driver.sleep(5)
         print('All data processed, saving to the csv...')
         print(df)
         df.to_csv('bidfax.csv', mode='a', header = False, index=False) 
