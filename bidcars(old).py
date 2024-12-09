@@ -8,39 +8,54 @@ import pandas as pd
 import time
 
 # Function to extract the data
-def extracting_data(MAX_PAGES = 3):
-    # Url of website page to scrap
+def extracting_data(MAX_PAGES = 4):
     url = 'https://bid.cars/en/search/archived/results?search-type=filters&type=Automobile&make=BMW&model=3%20Series&year-from=2013&year-to=2019&order-by=dateDesc'
-    
-    # Initialize a DataFrame to store scraped data
     df = pd.DataFrame(columns=[
                 'Name', 'Price', 'Auction Type', 'Date of Sale', 'Sold by', 
                 'Condition', 'Mileage', 'Seller', 'Location', 'Damage', 
                 'Transmission', 'VIN'
             ])
-    
-    # Intitialization of page count
     page_count = 1
-    
-    # Intitialization of Selenium driver
+    processed_cars = set()
     driver = Driver(uc=True)
     driver.uc_open_with_reconnect(url, 10)
     
-    # Loop to scrape multiple pages, up to MAX_PAGES
     while page_count < MAX_PAGES:
         
-        # Parse the current page source with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, 'lxml')
-        
-        # Extract all car data from the page
         data = soup.find_all('div', class_ = 'item-horizontal lots-search')
         print(f'Number of cars found on page {page_count}: {len(data)}')
 
-        # Process the last 50 cars on the page
-        for car in data[-50:]:
-        
-            try:   
-                # Extract details of the car  
+        # Run for loop in reversed order(explanation in the documentation)
+        for car in reversed(data): # Alt solution to scrap only 50 in reversed order from data and then load more, that way we won't need to check for lot number.
+            
+            try:
+                # Find lot number 
+                lot_number = car.find('ul').find('li').find('span').next_sibling.strip()
+                
+                # Check for lot number if it was already processed
+                if lot_number in processed_cars:
+                    print(lot_number)
+                    try:
+                        # Press button to load more cars, and break the loop
+                        load_more = driver.find_element('link text', 'Load More...')
+                        load_more.click()
+                        time.sleep(2)
+                        print(f'Reached the end of page {page_count}, loading more content...')
+                        
+                        # Wait for new items to be loaded
+                        WebDriverWait(driver, 20).until(
+                            lambda driver: len(driver.find_elements(By.CLASS_NAME, 'item-horizontal')) > len(data)
+                        )
+                        # Increment page count     
+                        page_count +=1
+                        break
+                    except Exception as e:
+                        print(f'Error when pressing Load More... button: {e}')
+                        return
+                            
+                
+                # Extract car details 
                 name = car.find('a', class_='damage-info').text
                 price = car.find('div', class_='price-box').text.split(':')[1].strip()
                 auction_name = car.find('span', class_='item-seller').text
@@ -56,7 +71,7 @@ def extracting_data(MAX_PAGES = 3):
                 damage = info2[1].text.split(':')[1].strip()
                 sold_by = car.find('div', class_='bid-status status-orange').text
                 
-                # Store car details in dictionary
+                # Dictionary to store our vehicle info
                 car_data = {
                         'Name': name, 'Price': price, 
                         'Auction Name': auction_name, 
@@ -67,38 +82,22 @@ def extracting_data(MAX_PAGES = 3):
                         'Damage': damage, 'Auction Type': sold_by
                 }    
 
-                # Append the car data to the DataFrame
+                # Add lot number into processed cars
+                processed_cars.add(lot_number)
+
+                # Concatenate our data into dataframe
                 df = pd.concat([df, pd.DataFrame([car_data])], ignore_index=True)
                 
                 # Sleep for two seconds
-                time.sleep(3)
+                time.sleep(2)
             except Exception as e:
-                # Handle any exceptions to ensure the code does not crash
                 print(f'Error in the process: {e}')    
         
-        # Save the scraped data to a CSV file after each page
+        # Save to csv
         print(f'Saving data from page {page_count} to csv...') 
         df.to_csv('bidcars.csv', index=False)
-        
-        # Click on the "Load More" button to load more items
-        try:
-            load_more = driver.find_element('link text', 'Load More...')
-            load_more.click()
-            print(f'Reached the end of page {page_count}, loading more content...')
-            time.sleep(3)
-            
-            # Wait for the next set of cars to load
-            WebDriverWait(driver, 20).until(
-                lambda driver: len(driver.find_elements(By.CLASS_NAME, 'item-horizontal')) > len(data)
-            )
-            # Increment page count     
-            page_count +=1
-        except Exception as e:
-            # Handle the case where the "Load More" button doesn't exist
-            print(f'No more content to load. Stopping scrapping process. Error: {e}')
-            break
 
-    # Close the driver after all pages are processed
+    # Close drivers
     driver.close()
     driver.quit()
         
@@ -112,6 +111,6 @@ def main():
     print(f'\n\nTime to complete the scraping: {time.time()- start_time}\n\n')
     print('*'*40)
 
-# Entry point of the script
+
 if __name__ == '__main__':
     main()

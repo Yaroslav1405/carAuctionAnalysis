@@ -2,3 +2,6 @@ __pycache__/
 downloaded_files/
 *.exe
 *.csv
+test_loading_content.py
+test2.py
+test.py
