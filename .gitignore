@@ -3,5 +3,7 @@ downloaded_files/
 *.exe
 *.csv
 test_loading_content.py
+test3.py
 test2.py
 test.py
+
