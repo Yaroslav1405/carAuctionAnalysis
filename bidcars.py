@@ -7,18 +7,24 @@ from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 import time
 
+
+
 # Function to extract the data
 def extracting_data(MAX_PAGES = 21):
-    # Url of website page to scrap
-    
-    login_url = ''
+    # Url of website page to log in and scrap
+    login_url = 'https://bid.cars/en/login'
     scrape_url = 'https://bid.cars/en/search/archived/results?search-type=filters&type=Automobile&make=BMW&model=3+Series&year-from=2013&year-to=2019&airbags=Intact&order-by=dateDesc'
     
-    # Initialize a DataFrame to store scraped data
+    # Login credentials
+    email = 'email'
+    password = 'password'
+    
+    
+    # Intitialization of DataFrame to store scraped data
     df = pd.DataFrame(columns=[
-                'Name', 'Price', 'Auction Type', 'Date of Sale', 'Sold by', 
-                'Condition', 'Mileage', 'Seller', 'Location', 'Damage', 
-                'Transmission', 'VIN'
+                'Name', 'Price', 'Auction Name', 'Date of Sale', 'Condition',
+                'VIN', 'Mileage', 'Seller', 'Documents', 'Key', 'Location',
+                'Damage', 'Auction Type', 'Transmission'
             ])
     
     # Intitialization of page count
@@ -26,9 +32,18 @@ def extracting_data(MAX_PAGES = 21):
     
     # Intitialization of Selenium driver
     driver = Driver(uc=True)
+    
+    # Connect to login page
+    driver.uc_open_with_reconnect(login_url, 10)
+    
+    # Find login and password fields and send keys
+    driver.find_element(By.NAME, 'login').send_keys(email)
+    time.sleep(3)
+    driver.find_element(By.NAME, 'password').send_keys(password)
+    driver.uc_click("button.btn-primary.g-recaptcha")
+        
+    # Open URL to scrape
     driver.uc_open_with_reconnect(scrape_url, 10)
-    
-    
     
     
     
@@ -39,7 +54,7 @@ def extracting_data(MAX_PAGES = 21):
         soup = BeautifulSoup(driver.page_source, 'lxml')
         
         # Extract all car data from the page
-        data = soup.find_all('div', class_ = 'item-horizontal lots-search')
+        data = soup.find_all('div', class_ = 'item-horizontal lots-search red')
         print(f'Number of cars found on page {page_count}: {len(data)}')
 
         # Process the last 50 cars on the page
@@ -48,20 +63,22 @@ def extracting_data(MAX_PAGES = 21):
             try:   
                 # Extract details of the car  
                 name = car.find('a', class_='damage-info').text
-                price = car.find('div', class_='price-box').text.split(':')[1].strip() if car.find('div', class_='price-box') else "N/A"
+                price = car.find('div', class_='price-box').text if car.find('div', class_='price-box') else "N/A"
                 auction_name = car.find('span', class_='item-seller').text
                 sale_date = car.find('div', class_='date no-wrap-text-ellipsis').text
                 condition =car.find('strong').text
-                info = car.find_all('li', class_='no-wrap-text-ellipsis')
-                mileage = info[1].text.split(':')[1].strip() # if len(info) > 1 else info
-                vin = info[0].text.split(':')[1].strip() # if len(info) > 0 else 'N/A'
-                seller = info[3].text.split(':')[1].strip() # if len(info) > 3 else 'N/A'
-                location = info[2].text.split(':')[1].strip() # if len(info) > 2 else 'N/A'
-                info2 = car.find_all('li', class_='damage-info')
-                documents = info2[0].text.split(':')[1].strip() # if len(info2) > 0 else info2
-                damage = info2[1].text.split(':')[1].strip() # if len(info2) > 1 else 'N/A'
-                sold_by = car.find('div', class_='bid-status status-orange').text
-                
+                mileage = car.find('li', class_='odo_desc no-wrap-text-ellipsis').text
+                vin = car.find('span', class_='vin_title').text
+                seller = car.find('li', class_='seller_desc').text
+                location = car.find('li', class_='loc_desc no-wrap-text-ellipsis').text
+                documents = car.find('li', class_='doc_desc damage-info').text
+                damage = car.find('li',class_='damage-info').text
+                sold_parameter = car.find_all('div', class_='price-box')
+                sold_by = sold_parameter[1].text if len(sold_parameter) > 1 else 'Past Auction'
+                additional_info = soup.find_all('span', {'data-original-title': True})
+                key_status = additional_info[0]['data-original-title']
+                transmission = additional_info[1]['data-original-title']
+        
                 # Store car details in dictionary
                 car_data = {
                         'Name': name, 'Price': price, 
@@ -69,8 +86,10 @@ def extracting_data(MAX_PAGES = 21):
                         'Date of Sale': sale_date, 
                         'Condition': condition, 'VIN': vin, 
                         'Mileage': mileage, 'Seller': seller, 
-                        'Documents': documents, 'Location': location, 
-                        'Damage': damage, 'Auction Type': sold_by
+                        'Documents': documents, 'Key': key_status,
+                        'Location': location, 'Damage': damage, 
+                        'Auction Type': sold_by, 
+                        'Transmission': transmission
                 }    
 
                 # Append the car data to the DataFrame
@@ -94,9 +113,14 @@ def extracting_data(MAX_PAGES = 21):
             time.sleep(3)
             
             # Wait for the next set of cars to load
-            WebDriverWait(driver, 30).until(
+            WebDriverWait(driver, 45).until(
                 lambda driver: len(driver.find_elements(By.CLASS_NAME, 'item-horizontal')) > len(data)
             )
+            
+            # Scroll to the "Load More" button to make it visible
+            driver.execute_script("arguments[0].scrollIntoView();", load_more)
+            time.sleep(3)
+            
             # Increment page count     
             page_count +=1
         except Exception as e:
