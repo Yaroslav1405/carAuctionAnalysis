@@ -1,6 +1,5 @@
 __pycache__/
 downloaded_files/
-*.exe
 *.csv
-cookies.txt
+saved_cookies/
 .gitignore
