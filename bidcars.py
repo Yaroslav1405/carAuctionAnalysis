@@ -71,8 +71,8 @@ def extracting_data(MAX_PAGES = 21):
                 vin = car.find('span', class_='vin_title').text
                 seller = car.find('li', class_='seller_desc').text
                 location = car.find('li', class_='loc_desc no-wrap-text-ellipsis').text
-                documents = car.find('li', class_='doc_desc damage-info').text
-                damage = car.find('li',class_='damage-info').text
+                documents = car.find('li', class_='doc_desc').text
+                damage = car.find_all('li',class_='damage-info')[1].text
                 sold_parameter = car.find_all('div', class_='price-box')
                 sold_by = sold_parameter[1].text if len(sold_parameter) > 1 else 'Past Auction'
                 additional_info = soup.find_all('span', {'data-original-title': True})
